@@ -1,57 +1,81 @@
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
+from pyspark.sql.types import *
+import sys
 
-spark = SparkSession.builder.appName("Job2").getOrCreate()
-# S3 paths for the input data
-locations_s3_path = "s3://car-rental-bucket-125/land-folder/raw_data/locations.csv"
-transactions_s3_path = "s3://car-rental-bucket-125/land-folder/raw_data/rental_transactions.csv"
-users_s3_path = "s3://car-rental-bucket-125/land-folder/raw_data/users.csv"
-vehicles_s3_path = "s3://car-rental-bucket-125/land-folder/raw_data/vehicles.csv"
+def main():
+    spark = SparkSession.builder \
+        .appName("Job2") \
+        .config("spark.sql.parquet.compression.codec", "snappy") \
+        .getOrCreate()
 
-# Load data from S3
-locations = spark.read.csv(locations_s3_path, header=True, inferSchema=True)
-transactions = spark.read.csv(transactions_s3_path, header=True, inferSchema=True)
-users = spark.read.csv(users_s3_path, header=True, inferSchema=True)
-vehicles = spark.read.csv(vehicles_s3_path, header=True, inferSchema=True)
+    try:
+        # 1. Validate Input Paths
+        input_bucket = "s3://car-rental-bucket-125/land-folder/raw_data/"
+        required_files = ["locations.csv", "rental_transactions.csv", "users.csv", "vehicles.csv"]
+        for file in required_files:
+            if not spark._jvm.org.apache.hadoop.fs.FileSystem.get(
+                spark._jsc.hadoopConfiguration()
+            ).exists(spark._jvm.org.apache.hadoop.fs.Path(input_bucket + file)):
+                raise FileNotFoundError(f"Missing input file: {file}")
 
-# Revenue per Location
-revenue_per_location_df = transactions.groupBy("pickup_location").agg(F.sum("total_amount").alias("total_revenue"))
+        # 2. Load Data with Explicit Schemas
+        transactions_schema = StructType([
+            StructField("rental_id", StringType()),
+            StructField("vehicle_id", StringType()),
+            StructField("pickup_location", StringType()),
+            StructField("total_amount", DoubleType()),
+            StructField("rental_start_time", TimestampType()),
+            StructField("rental_end_time", TimestampType())
+        ])
 
-# Total Transactions per Location
-transactions_per_location_df = transactions.groupBy("pickup_location").agg(F.count("rental_id").alias("total_transactions"))
+        transactions = spark.read.csv(
+            input_bucket + "rental_transactions.csv",
+            schema=transactions_schema,
+            header=True
+        ).na.fill({"total_amount": 0, "pickup_location": "UNKNOWN"})
 
-# Average, Max, and Min Transaction Amounts
-transaction_amounts_df = transactions.groupBy("pickup_location").agg(
-    F.avg("total_amount").alias("avg_transaction"),
-    F.max("total_amount").alias("max_transaction"),
-    F.min("total_amount").alias("min_transaction")
-)
+        # 3. Calculate KPIs
+        kpi_dfs = [
+            transactions.groupBy("pickup_location")
+                .agg(F.sum("total_amount").alias("total_revenue")),
+                
+            transactions.groupBy("pickup_location")
+                .agg(F.count("rental_id").alias("total_transactions")),
+                
+            transactions.groupBy("pickup_location").agg(
+                F.avg("total_amount").alias("avg_transaction"),
+                F.max("total_amount").alias("max_transaction"),
+                F.min("total_amount").alias("min_transaction")
+            ),
+            
+            transactions.withColumn(
+                "rental_duration_hours",
+                (F.col("rental_end_time").cast("long") - F.col("rental_start_time").cast("long")) / 3600
+            ).groupBy("pickup_location").agg(
+                F.sum("total_amount").alias("total_revenue_by_location"),
+                F.sum("rental_duration_hours").alias("total_rental_duration_by_location")
+            )
+        ]
 
+        # 4. Join all KPIs
+        final_kpi = kpi_dfs[0]
+        for df in kpi_dfs[1:]:
+            final_kpi = final_kpi.join(df, "pickup_location", "left")
 
-# Unique Vehicles Used at Each Location
-unique_vehicles_per_location_df = transactions.groupBy("pickup_location").agg(F.countDistinct("vehicle_id").alias("unique_vehicles"))
+        # 5. Write Output
+        output_path = "s3://car-rental-bucket-125/processed_folder/output/user_transaction_kpis/"
+        final_kpi.repartition(1) \
+            .write \
+            .mode("overwrite") \
+            .option("compression", "snappy") \
+            .parquet(output_path)
 
-# Rental Duration and Revenue by Location
-# Calculate rental duration in hours and aggregate revenue and duration by location
-rental_duration_revenue_by_location_df = transactions.withColumn(
-    "rental_duration_hours", 
-    (F.col("rental_end_time").cast("long") - F.col("rental_start_time").cast("long")) / 3600
-).groupBy("pickup_location").agg(
-    F.sum("total_amount").alias("total_revenue_by_location"),
-    F.sum("rental_duration_hours").alias("total_rental_duration_by_location")
-)
+    except Exception as e:
+        print(f"Job failed: {str(e)}", file=sys.stderr)
+        raise
+    finally:
+        spark.stop()
 
-# Join all KPIs on location (and vehicle_type where applicable)
-
-final_kpi_df = revenue_per_location_df \
-        .join(transactions_per_location_df, "pickup_location", "left") \
-        .join(transaction_amounts_df, "pickup_location", "left") \
-        .join(unique_vehicles_per_location_df, "pickup_location", "left") \
-        .join(rental_duration_revenue_by_location_df, "pickup_location", "left")
-
-
-# S3 output path
-output_s3_path = "s3://car-rental-bucket-125/processed_folder/output/user_transaction_kpis.parquet"
-
-# Save the final KPIs as a single Parquet file to S3
-final_kpi_df.write.mode("overwrite").parquet(output_s3_path)
+if __name__ == "__main__":
+    main()
