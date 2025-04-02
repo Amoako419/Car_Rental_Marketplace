@@ -3,10 +3,10 @@ from pyspark.sql import functions as F
 
 spark = SparkSession.builder.appName("Job1").getOrCreate()
 # S3 paths for the input data
-locations_s3_path = "s3://your-bucket-name/prefix/locations.csv"
-transactions_s3_path = "s3://your-bucket-name/prefix/rental_transactions.csv"
-users_s3_path = "s3://your-bucket-name/prefix/users.csv"
-vehicles_s3_path = "s3://your-bucket-name/prefix/vehicles.csv"
+locations_s3_path = "s3://car-rental-bucket-125/land-folder/raw_data/locations.csv"
+transactions_s3_path = "s3://car-rental-bucket-125/land-folder/raw_data/rental_transactions.csv"
+users_s3_path = "s3://car-rental-bucket-125/land-folder/raw_data/users.csv"
+vehicles_s3_path = "s3://car-rental-bucket-125/land-folder/raw_data/vehicles.csv"
 
 # Load data from S3
 locations = spark.read.csv(locations_s3_path, header=True, inferSchema=True)
@@ -43,7 +43,7 @@ kpi_df = transactions_per_day \
 
 
 # S3 output path
-output_s3_path = "s3://your-bucket-name/prefix/output/user_transaction_kpis.parquet"
+output_s3_path = "s3://car-rental-bucket-125/processed_folder/output/user_transaction_kpis.parquet"
 
 # Save the final KPIs as a single Parquet file to S3
 kpi_df.write.mode("overwrite").parquet(output_s3_path)
