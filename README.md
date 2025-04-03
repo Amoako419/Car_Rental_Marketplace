@@ -33,7 +33,7 @@ The pipeline is orchestrated using **AWS Step Functions**, which ensures seamles
 ### 1. Clone the Repository
 ```bash
 git clone https://github.com/Amoako419/Car_Rental_Marketplace.git
-cd car-rental-analytics
+cd car-rental-marketplace
 ```
 
 ### 2. Configure AWS Credentials
@@ -50,14 +50,14 @@ s3://car-rental-bucket-125/land-folder/raw_data/
 ```
 
 ### 4. Deploy the EMR Cluster
-Use the provided AWS CLI command or Step Function workflow to create an EMR cluster with Spark enabled.
+Use the provided AWS CLI command or Step Function workflow to create an EMR cluster with Spark enabled. The step function workflow json can be found `step-functions.json`
 
 ---
 
 ## Usage
 
 ### Explore Data Locally
-Use the `notebooks/eda.ipynb` notebook to perform exploratory data analysis (EDA) and compute KPIs locally using PySpark. Open the notebook with Jupyter:
+View the `notebooks/eda.ipynb` notebook to see some exploratory data analysis (EDA) and the computation of KPIs locally using PySpark. Open the notebook with Jupyter:
 ```bash
 jupyter notebook notebooks/eda.ipynb
 ```
@@ -88,9 +88,8 @@ The pipeline calculates the following KPIs:
 ---
 
 ## AWS Step Function Workflow
-
 <p align="center">
-    <img src="images/Step_functions_complete.png" alt="The architecture diagram" width="100%" />
+    <img src="images/stepfunctions_graph.png" alt="The architecture diagram" width="100%" />
 </p>
 
 The **AWS Step Function** orchestrates the entire pipeline, ensuring tasks are executed in the correct order and handling failures gracefully. Below is a breakdown of the steps involved:
@@ -127,6 +126,10 @@ The **AWS Step Function** orchestrates the entire pipeline, ensuring tasks are e
    - Sends a notification via **Amazon SNS** to notify stakeholders about the completion of the pipeline.
    - Includes details about the success or failure of the pipeline.
 
+  
+<p align="center">
+    <img src="images/Step_functions_complete.png" alt="The architecture diagram" width="100%" />
+</p>
 ---
 
 ## Insights from Athena Queries
@@ -168,7 +171,7 @@ ORDER BY total_spent DESC
 LIMIT 5;
 ```
 
-- **Purpose**: Identifies the top 5 users who spent the most money on rentals.
+- **Purpose**: Identifies the top 5 users who spent the most money on vehicle rentals.
 - **Dataset**: `user_metrics_parquet`
   - Contains user-level metrics such as total spending, total transactions, etc.
   - Columns: `user_id`, `total_spent`, etc.
@@ -226,9 +229,9 @@ car_rental_marketplace/
 │   └── eda.ipynb                # EDA and KPI computations using PySpark
 ├── data/                        # Local data folder   
 ├── s3_scripts/                  # Scripts to load data and Spark jobs into S3
-│   ├── load_data.py       # Script to upload local data to S3
-│   ├── load_spark.py # Script to upload Spark jobs to S3
-|   ├── requirements.txt          # Python dependencies
+│   ├── load_data.py             # Script to upload local data to S3
+│   ├── load_spark.py            # Script to upload Spark jobs to S3
+|   ├── requirements.txt         # Python dependencies
 ├── .env                         # Environment variables for AWS credentials
 ├── README.md                    # Project documentation
 └── images/                      # Images used in the documentation
