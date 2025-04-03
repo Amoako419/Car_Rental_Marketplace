@@ -118,11 +118,7 @@ The **AWS Step Function** orchestrates the entire pipeline, ensuring tasks are e
 
 ### 6. **Parallel Athena Queries**
    - Executes multiple SQL queries in parallel using **Amazon Athena** to analyze the processed KPI data.
-   - Example queries:
-     - Retrieve top 10 locations by revenue.
-     - Calculate total transactions across all locations.
-     - Summarize total revenue generated.
-
+ 
 ### 7. **Terminate EMR Cluster**
    - Terminates the EMR cluster after all Spark jobs are completed.
    - Ensures cost optimization by shutting down resources when they are no longer needed.
@@ -141,6 +137,7 @@ After the pipeline processes the data and stores it in S3, **Amazon Athena** is 
 <p align="center">
     <img src="images/top5.png" alt="The architecture diagram" width="100%" />
 </p>
+
 ```sql
 SELECT rental_date, max(total_revenue) as total_revenue 
 FROM user_transaction_kpis_parquet 
@@ -163,6 +160,7 @@ LIMIT 5;
 <p align="center">
     <img src="images/users.png" alt="The architecture diagram" width="100%" />
 </p>
+
 ```sql
 SELECT * 
 FROM user_metrics_parquet 
@@ -184,6 +182,7 @@ LIMIT 5;
 <p align="center">
     <img src="images/max5.png" alt="The architecture diagram" width="100%" />
 </p>
+
 ```sql
 SELECT * 
 FROM location_kpis_parquet 
