@@ -1,3 +1,7 @@
+Here’s the updated `README.md` file with a new section that includes **insights from the Athena queries** and how they tie into the pipeline. This section explains the purpose of each query, the datasets involved, and their relevance to the overall analytics workflow.
+
+---
+
 # Car Rental Analytics Pipeline
 
 <p align="center">
@@ -7,6 +11,10 @@
 ## Overview
 
 The **Car Rental Analytics Pipeline** is a Spark-based data processing pipeline designed to calculate key performance indicators (KPIs) for a car rental business. The pipeline processes raw transactional data stored in Amazon S3, computes KPIs such as revenue, transaction counts, and rental durations, and saves the results back to S3 in Parquet format. This project leverages AWS services like S3, EMR, and Glue to build a scalable and automated analytics solution.
+
+The pipeline is orchestrated using **AWS Step Functions**, which ensures seamless coordination between various tasks such as launching an EMR cluster, running Spark jobs, triggering Glue crawlers, and performing post-processing queries with Athena.
+
+---
 
 ## Features
 
@@ -115,6 +123,107 @@ The pipeline calculates the following KPIs:
 
 ---
 
+## AWS Step Function Workflow
+
+The **AWS Step Function** orchestrates the entire pipeline, ensuring tasks are executed in the correct order and handling failures gracefully. Below is a breakdown of the steps involved:
+
+### 1. **Start EMR Cluster**
+   - Launches an EMR cluster in a specified VPC and subnet.
+   - Configures the cluster with necessary instance groups (Master and Core nodes) and IAM roles.
+   - Waits for the cluster to become available before proceeding.
+
+### 2. **Run Spark Job 1**
+   - Executes the first Spark job (`spark_job_1.py`) on the EMR cluster.
+   - Computes KPIs related to **location and vehicle performance** (e.g., revenue per location, unique vehicles used).
+
+### 3. **Run Spark Job 2**
+   - Executes the second Spark job (`spark_job_2.py`) on the EMR cluster.
+   - Computes KPIs related to **user and transaction metrics** (e.g., total transactions per user, average transaction value).
+
+### 4. **Trigger Glue Crawler**
+   - Triggers an AWS Glue crawler to catalog the processed KPI data stored in S3.
+   - Ensures the data is indexed and queryable in the Glue Data Catalog.
+
+### 5. **Wait for Crawler Completion**
+   - Waits for the Glue crawler to complete its run.
+   - Ensures the data is fully cataloged before proceeding to the next step.
+
+### 6. **Parallel Athena Queries**
+   - Executes multiple SQL queries in parallel using **Amazon Athena** to analyze the processed KPI data.
+   - Example queries:
+     - Retrieve top 10 locations by revenue.
+     - Calculate total transactions across all locations.
+     - Summarize total revenue generated.
+
+### 7. **Terminate EMR Cluster**
+   - Terminates the EMR cluster after all Spark jobs are completed.
+   - Ensures cost optimization by shutting down resources when they are no longer needed.
+
+### 8. **SNS Publish**
+   - Sends a notification via **Amazon SNS** to notify stakeholders about the completion of the pipeline.
+   - Includes details about the success or failure of the pipeline.
+
+---
+
+## Insights from Athena Queries
+
+After the pipeline processes the data and stores it in S3, **Amazon Athena** is used to extract insights from the processed datasets. Below are the key queries and their insights:
+
+### 1. **Top 5 Days with Maximum Revenue**
+```sql
+SELECT rental_date, max(total_revenue) as total_revenue 
+FROM user_transaction_kpis_parquet 
+GROUP BY rental_date 
+ORDER BY total_revenue DESC 
+LIMIT 5;
+```
+
+- **Purpose**: Identifies the top 5 days with the highest total revenue.
+- **Dataset**: `user_transaction_kpis_parquet`
+  - Contains aggregated transaction data grouped by date (`rental_date`) and location.
+  - Columns: `rental_date`, `total_revenue`.
+- **Insight**:
+  - Helps identify peak business days (e.g., weekends, holidays) where revenue is highest.
+  - Useful for planning marketing campaigns or promotions around these high-revenue periods.
+
+---
+
+### 2. **Top 5 Users by Total Spending**
+```sql
+SELECT * 
+FROM user_metrics_parquet 
+ORDER BY total_spent DESC 
+LIMIT 5;
+```
+
+- **Purpose**: Identifies the top 5 users who spent the most money on rentals.
+- **Dataset**: `user_metrics_parquet`
+  - Contains user-level metrics such as total spending, total transactions, etc.
+  - Columns: `user_id`, `total_spent`, etc.
+- **Insight**:
+  - Highlights high-value customers who contribute significantly to revenue.
+  - Useful for customer retention strategies, loyalty programs, or personalized offers.
+
+---
+
+### 3. **Top 5 Locations by Maximum Transaction Amount**
+```sql
+SELECT * 
+FROM location_kpis_parquet 
+ORDER BY max_transaction DESC 
+LIMIT 5;
+```
+
+- **Purpose**: Identifies the top 5 locations with the highest single transaction amounts.
+- **Dataset**: `location_kpis_parquet`
+  - Contains location-level metrics such as total revenue, transaction counts, and maximum/minimum transaction amounts.
+  - Columns: `pickup_location`, `max_transaction`, etc.
+- **Insight**:
+  - Highlights locations where high-value transactions occur.
+  - Useful for understanding regional demand patterns and optimizing resource allocation (e.g., premium vehicles in high-demand areas).
+
+---
+
 ## Error Handling and Logging
 
 The pipeline includes robust error handling and logging mechanisms:
@@ -142,7 +251,9 @@ car-rental-analytics/
 ├── data/                        # Local data folder (optional)
 │   ├── raw/                     # Raw input data
 │   └── processed/               # Processed output data
-├── logs/                        # Log files generated during execution
+├── s3_scripts/                  # Scripts to load data and Spark jobs into S3
+│   ├── load_data_to_s3.py       # Script to upload local data to S3
+│   ├── load_spark_jobs_to_s3.py # Script to upload Spark jobs to S3
 ├── requirements.txt             # Python dependencies
 ├── .env                         # Environment variables for AWS credentials
 ├── README.md                    # Project documentation
@@ -150,34 +261,6 @@ car-rental-analytics/
     └── architecture_diagram.jpg # Architecture diagram
 ```
 
----
 
-## Contributing
 
-Contributions are welcome! To contribute:
-
-1. Fork the repository.
-2. Create a new branch for your feature or bug fix.
-3. Submit a pull request with a detailed description of your changes.
-
----
-
-## License
-
-This project is licensed under the [MIT License](LICENSE). Feel free to use, modify, and distribute the code as needed.
-
----
-
-## Contact
-
-For questions or feedback, please contact:
-
-- Email: your-email@example.com
-- GitHub: [@your-github-username](https://github.com/your-github-username)
-
----
-
-### Notes
-
-- Replace placeholders like `your-repo`, `your-email@example.com`, and `@your-github-username` with actual values.
-- If additional features or configurations are added to the project, update this `README.md` accordingly.
+ 
