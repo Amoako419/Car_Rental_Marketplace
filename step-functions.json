@@ -1,0 +1,209 @@
+{
+    "Comment": "Step Functions for Automating EMR Spark Processing",
+    "StartAt": "Start EMR Cluster",
+    "States": {
+      "Start EMR Cluster": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::elasticmapreduce:createCluster.sync",
+        "Parameters": {
+          "Name": "KPI-Processing-EMR",
+          "LogUri": "s3://car-rental-bucket-125/emr-logs/",
+          "ReleaseLabel": "emr-7.7.0",
+          "Applications": [
+            {
+              "Name": "Hadoop"
+            },
+            {
+              "Name": "Spark"
+            },
+            {
+              "Name": "Hive"
+            }
+          ],
+          "Instances": {
+            "KeepJobFlowAliveWhenNoSteps": true,
+            "InstanceGroups": [
+              {
+                "Name": "Master node",
+                "Market": "ON_DEMAND",
+                "InstanceRole": "MASTER",
+                "InstanceType": "m5.xlarge",
+                "InstanceCount": 1
+              },
+              {
+                "Name": "Core nodes",
+                "Market": "ON_DEMAND",
+                "InstanceRole": "CORE",
+                "InstanceType": "m5.xlarge",
+                "InstanceCount": 2
+              }
+            ],
+            "Ec2SubnetId": "subnet-083af2dc06d8cf60b",
+            "EmrManagedMasterSecurityGroup": "sg-06696eb097451fea5",
+            "EmrManagedSlaveSecurityGroup": "sg-036ae8f79e5f20d7c"
+          },
+          "VisibleToAllUsers": true,
+          "JobFlowRole": "EMR_EC2_DefaultRole",
+          "ServiceRole": "EMR_DefaultRole",
+          "Configurations": [
+            {
+              "Classification": "spark-defaults",
+              "Properties": {
+                "spark.driver.memory": "4g",
+                "spark.executor.memory": "4g",
+                "spark.executor.cores": "2"
+              }
+            }
+          ]
+        },
+        "ResultPath": "$.EMROutput",
+        "Next": "Run Spark Job 1"
+      },
+      "Run Spark Job 1": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::elasticmapreduce:addStep.sync",
+        "Parameters": {
+          "ClusterId.$": "$.EMROutput.ClusterId",
+          "Step": {
+            "Name": "Run Spark Job 1 - Vehicle & Location KPIs",
+            "ActionOnFailure": "CONTINUE",
+            "HadoopJarStep": {
+              "Jar": "command-runner.jar",
+              "Args": [
+                "spark-submit",
+                "--master",
+                "yarn",
+                "--deploy-mode",
+                "cluster",
+                "--verbose",
+                "s3://car-rental-bucket-125/spark/jobs/spark-job-1.py"
+              ]
+            }
+          }
+        },
+        "ResultPath": "$.SparkJob1Result",
+        "Next": "Run Spark Job 2"
+      },
+      "Run Spark Job 2": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::elasticmapreduce:addStep.sync",
+        "Parameters": {
+          "ClusterId.$": "$.EMROutput.ClusterId",
+          "Step": {
+            "Name": "Run Spark Job 2 - User & Transaction KPIs",
+            "ActionOnFailure": "CONTINUE",
+            "HadoopJarStep": {
+              "Jar": "command-runner.jar",
+              "Args": [
+                "spark-submit",
+                "--master",
+                "yarn",
+                "--deploy-mode",
+                "cluster",
+                "--verbose",
+                "s3://car-rental-bucket-125/spark/jobs/spark-job-2.py"
+              ]
+            }
+          }
+        },
+        "ResultPath": "$.SparkJob2Result",
+        "Next": "Trigger Glue Crawler"
+      },
+      "Trigger Glue Crawler": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::aws-sdk:glue:startCrawler",
+        "Parameters": {
+          "Name": "kpi-crawler"
+        },
+        "ResultPath": "$.GlueCrawlerResult",
+        "Next": "Wait For Crawler Completion"
+      },
+      "Wait For Crawler Completion": {
+        "Type": "Wait",
+        "Seconds": 120,
+        "Next": "Parallel Athena Queries"
+      },
+      "Parallel Athena Queries": {
+        "Type": "Parallel",
+        "Branches": [
+          {
+            "StartAt": "Run Athena Query 1",
+            "States": {
+              "Run Athena Query 1": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::athena:startQueryExecution.sync",
+                "Parameters": {
+                  "QueryString": "SELECT rental_date, max(total_revenue) as total_revenue FROM user_transaction_kpis_parquet group by rental_date order by total_revenue desc limit 5 ;",
+                  "QueryExecutionContext": {
+                    "Database": "kpi_db"
+                  },
+                  "ResultConfiguration": {
+                    "OutputLocation": "s3://car-rental-bucket-125/queries/query-results/"
+                  }
+                },
+                "End": true
+              }
+            }
+          },
+          {
+            "StartAt": "Run Athena Query 2",
+            "States": {
+              "Run Athena Query 2": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::athena:startQueryExecution.sync",
+                "Parameters": {
+                  "QueryString": "SELECT * FROM user_metrics_parquet order by total_spent desc limit 5;",
+                  "QueryExecutionContext": {
+                    "Database": "kpi_db"
+                  },
+                  "ResultConfiguration": {
+                    "OutputLocation": "s3://car-rental-bucket-125/queries/query-results/"
+                  }
+                },
+                "End": true
+              }
+            }
+          },
+          {
+            "StartAt": "Run Athena Query 3",
+            "States": {
+              "Run Athena Query 3": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::athena:startQueryExecution.sync",
+                "Parameters": {
+                  "QueryString": "SELECT * FROM location_kpis_parquet order by max_transaction desc limit 5;",
+                  "QueryExecutionContext": {
+                    "Database": "kpi_db"
+                  },
+                  "ResultConfiguration": {
+                    "OutputLocation": "s3://car-rental-bucket-125/queries/query-results/"
+                  }
+                },
+                "End": true
+              }
+            }
+          }
+        ],
+        "ResultPath": "$.AthenaResults",
+        "Next": "Terminate EMR Cluster"
+      },
+      "Terminate EMR Cluster": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::elasticmapreduce:terminateCluster.sync",
+        "Parameters": {
+          "ClusterId.$": "$.EMROutput.ClusterId"
+        },
+        "ResultPath": "$.TerminateResult",
+        "Next": "SNS Publish"
+      },
+      "SNS Publish": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::sns:publish",
+        "Parameters": {
+          "TopicArn": "arn:aws:sns:eu-west-1:405894843300:etl",
+          "Message": "EMR cluster processing completed successfully. Check results in S3."
+        },
+        "End": true
+      }
+    }
+  }
