@@ -206,7 +206,7 @@ The pipeline includes robust error handling and logging mechanisms:
 The project is organized as follows:
 
 ```
-car-rental-analytics/
+car_rental_marketplace/
 ├── spark_jobs/                  # Folder containing Spark job scripts
 │   ├── spark_job_1.py           # First Spark job script
 │   ├── spark_job_2.py           # Second Spark job script
@@ -214,9 +214,9 @@ car-rental-analytics/
 │   └── eda.ipynb                # EDA and KPI computations using PySpark
 ├── data/                        # Local data folder   
 ├── s3_scripts/                  # Scripts to load data and Spark jobs into S3
-│   ├── load_data_to_s3.py       # Script to upload local data to S3
-│   ├── load_spark_jobs_to_s3.py # Script to upload Spark jobs to S3
-├── requirements.txt             # Python dependencies
+│   ├── load_data.py       # Script to upload local data to S3
+│   ├── load_spark.py # Script to upload Spark jobs to S3
+|   ├── requirements.txt          # Python dependencies
 ├── .env                         # Environment variables for AWS credentials
 ├── README.md                    # Project documentation
 └── images/                      # Images used in the documentation
