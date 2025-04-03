@@ -1,7 +1,3 @@
-Here’s the updated `README.md` file with a new section that includes **insights from the Athena queries** and how they tie into the pipeline. This section explains the purpose of each query, the datasets involved, and their relevance to the overall analytics workflow.
-
----
-
 # Car Rental Analytics Pipeline
 
 <p align="center">
@@ -29,19 +25,6 @@ The pipeline is orchestrated using **AWS Step Functions**, which ensures seamles
 - **Data Validation**: Ensures data quality by validating schemas, checking for null values, and verifying timestamps.
 - **Output Storage**: Saves processed KPIs in Parquet format to an S3 bucket for further analysis or visualization.
 
----
-
-## Prerequisites
-
-Before running the pipeline, ensure you have the following:
-
-1. **AWS Account**: Access to AWS services like S3, EMR, and Glue.
-2. **AWS CLI**: Installed and configured with appropriate permissions.
-3. **Spark Environment**: An EMR cluster or local Spark installation.
-4. **Python**: Python 3.9 installed.
-5. **Dependencies**:
-   - PySpark (`pip install pyspark`)
-   - Boto3 (`pip install boto3`) for interacting with AWS services.
 
 ---
 
@@ -73,29 +56,10 @@ Use the provided AWS CLI command or Step Function workflow to create an EMR clus
 
 ## Usage
 
-### Run the Spark Jobs
-Submit the Spark jobs using the `spark-submit` command:
-```bash
-spark-submit --master yarn --deploy-mode cluster spark_jobs/spark_job_1.py
-spark-submit --master yarn --deploy-mode cluster spark_jobs/spark_job_2.py
-```
-
 ### Explore Data Locally
 Use the `notebooks/eda.ipynb` notebook to perform exploratory data analysis (EDA) and compute KPIs locally using PySpark. Open the notebook with Jupyter:
 ```bash
 jupyter notebook notebooks/eda.ipynb
-```
-
-### Monitor Logs
-Check the logs in CloudWatch or the local log file generated during execution:
-```
-car_rental_spark_job_<timestamp>.log
-```
-
-### Verify Output
-The processed KPIs will be saved in the following S3 path:
-```
-s3://car-rental-bucket-125/processed_folder/output/user_transaction_kpis.parquet
 ```
 
 ---
@@ -248,9 +212,7 @@ car-rental-analytics/
 │   ├── spark_job_2.py           # Second Spark job script
 ├── notebooks/                   # Jupyter notebooks for EDA and local KPI computations
 │   └── eda.ipynb                # EDA and KPI computations using PySpark
-├── data/                        # Local data folder (optional)
-│   ├── raw/                     # Raw input data
-│   └── processed/               # Processed output data
+├── data/                        # Local data folder   
 ├── s3_scripts/                  # Scripts to load data and Spark jobs into S3
 │   ├── load_data_to_s3.py       # Script to upload local data to S3
 │   ├── load_spark_jobs_to_s3.py # Script to upload Spark jobs to S3
@@ -258,7 +220,6 @@ car-rental-analytics/
 ├── .env                         # Environment variables for AWS credentials
 ├── README.md                    # Project documentation
 └── images/                      # Images used in the documentation
-    └── architecture_diagram.jpg # Architecture diagram
 ```
 
 
