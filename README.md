@@ -89,7 +89,7 @@ The pipeline calculates the following KPIs:
 
 ## AWS Step Function Workflow
 <p align="center">
-    <img src="images/stepfunctions_graph.png" alt="The architecture diagram" width="100%" />
+    <img src="images/stepfunctions_graph.svg" alt="The architecture diagram" width="100%" />
 </p>
 
 The **AWS Step Function** orchestrates the entire pipeline, ensuring tasks are executed in the correct order and handling failures gracefully. Below is a breakdown of the steps involved:
