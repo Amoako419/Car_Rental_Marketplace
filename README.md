@@ -126,10 +126,11 @@ The **AWS Step Function** orchestrates the entire pipeline, ensuring tasks are e
    - Sends a notification via **Amazon SNS** to notify stakeholders about the completion of the pipeline.
    - Includes details about the success or failure of the pipeline.
 
-  
+ ### The complete Execution of a step function 
 <p align="center">
     <img src="images/Step_functions_complete.png" alt="The architecture diagram" width="100%" />
 </p>
+
 ---
 
 ## Insights from Athena Queries
