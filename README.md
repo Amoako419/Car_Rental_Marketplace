@@ -138,6 +138,9 @@ The **AWS Step Function** orchestrates the entire pipeline, ensuring tasks are e
 After the pipeline processes the data and stores it in S3, **Amazon Athena** is used to extract insights from the processed datasets. Below are the key queries and their insights:
 
 ### 1. **Top 5 Days with Maximum Revenue**
+<p align="center">
+    <img src="images/top5.png" alt="The architecture diagram" width="100%" />
+</p>
 ```sql
 SELECT rental_date, max(total_revenue) as total_revenue 
 FROM user_transaction_kpis_parquet 
@@ -157,6 +160,9 @@ LIMIT 5;
 ---
 
 ### 2. **Top 5 Users by Total Spending**
+<p align="center">
+    <img src="images/users.png" alt="The architecture diagram" width="100%" />
+</p>
 ```sql
 SELECT * 
 FROM user_metrics_parquet 
@@ -175,6 +181,9 @@ LIMIT 5;
 ---
 
 ### 3. **Top 5 Locations by Maximum Transaction Amount**
+<p align="center">
+    <img src="images/max5.png" alt="The architecture diagram" width="100%" />
+</p>
 ```sql
 SELECT * 
 FROM location_kpis_parquet 
